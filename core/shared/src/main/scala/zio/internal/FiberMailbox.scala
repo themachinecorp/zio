@@ -32,8 +32,8 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * The write sequence is stored in an AtomicInteger. Read sequence is a plain
  * volatile variable (safe: only one thread ever reads). Once the ring buffer
- * overflows (writeSeq >= 4), all subsequent adds go directly to the CLQ.
- * The ring buffer slots are drained before the CLQ, preserving FIFO ordering
+ * overflows (writeSeq >= 4), all subsequent adds go directly to the CLQ. The
+ * ring buffer slots are drained before the CLQ, preserving FIFO ordering
  * (messages added before overflow stay ahead of messages added after).
  *
  * Performance notes:
@@ -81,8 +81,8 @@ private[zio] final class FiberMailbox {
   }
 
   /**
-   * Polls one message from the mailbox. Called only by the single consumer fiber.
-   * Returns null when the mailbox is empty.
+   * Polls one message from the mailbox. Called only by the single consumer
+   * fiber. Returns null when the mailbox is empty.
    */
   def poll(): FiberMessage = {
     val r = readSeq
@@ -122,7 +122,8 @@ private[zio] final class FiberMailbox {
   }
 
   /**
-   * Drains the overflow CLQ. Called only when readSeq >= 4 (ring buffer drained).
+   * Drains the overflow CLQ. Called only when readSeq >= 4 (ring buffer
+   * drained).
    */
   private def drainQueue(): FiberMessage = {
     val q = queue
@@ -134,7 +135,8 @@ private[zio] final class FiberMailbox {
   }
 
   /**
-   * Lazily initializes the overflow CLQ. Synchronized to avoid duplicate allocation.
+   * Lazily initializes the overflow CLQ. Synchronized to avoid duplicate
+   * allocation.
    */
   private def ensureQueue(): ConcurrentLinkedQueue[FiberMessage] = {
     var q = queue

@@ -62,7 +62,7 @@ class FiberMailboxBenchmark {
   @Benchmark
   def mailboxSteadyState(bh: Blackhole): Unit = {
     val mbox = new FiberMailbox()
-    var i = 0
+    var i    = 0
     while (i < 100) {
       mbox.add(dummyMsg)
       bh.consume(mbox.poll())
@@ -73,7 +73,7 @@ class FiberMailboxBenchmark {
   @Benchmark
   def clqSteadyState(bh: Blackhole): Unit = {
     val clq = new ConcurrentLinkedQueue[FiberMessage]()
-    var i = 0
+    var i   = 0
     while (i < 100) {
       clq.add(dummyMsg)
       bh.consume(clq.poll())
@@ -121,8 +121,8 @@ class FiberMailboxBenchmark {
 }
 
 /**
- * Concurrent MPSC benchmark: N producer threads + 1 consumer thread.
- * Run with e.g. -f 4 -t 4 for 4 producers.
+ * Concurrent MPSC benchmark: N producer threads + 1 consumer thread. Run with
+ * e.g. -f 4 -t 4 for 4 producers.
  */
 @State(JScope.Benchmark)
 @BenchmarkMode(Array(Mode.Throughput))
@@ -132,7 +132,7 @@ class FiberMailboxBenchmark {
 @Fork(2)
 class FiberMailboxConcurrentBenchmark {
 
-  var mailbox: FiberMailbox                     = _
+  var mailbox: FiberMailbox                    = _
   var clq: ConcurrentLinkedQueue[FiberMessage] = _
 
   private val dummyMsg = FiberMessage.resumeUnit
