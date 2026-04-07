@@ -516,6 +516,86 @@ object QueueSpec extends ZIOBaseSpec {
         res    <- queue.size.sandbox.either
       } yield assert(res)(isLeft(equalTo(Cause.interrupt(selfId))))
     },
+    test("shutdownCause returns buffered items") {
+      for {
+        queue <- Queue.bounded[Int](4)
+        _     <- queue.offerAll(Chunk(1, 2, 3))
+        items <- queue.shutdownCause(Cause.die(new Error("test")))
+      } yield assert(items)(equalTo(Chunk(1, 2, 3)))
+    },
+    test("shutdownCause fails subsequent offer with specified cause") {
+      val boom = new Error("boom")
+      for {
+        queue <- Queue.bounded[Int](4)
+        _     <- queue.shutdownCause(Cause.die(boom))
+        res   <- queue.offer(1).sandbox.either
+      } yield assert(res)(isLeft(equalTo(Cause.die(boom))))
+    },
+    test("shutdownCause fails subsequent take with specified cause") {
+      val boom = new Error("boom")
+      for {
+        queue <- Queue.bounded[Int](4)
+        _     <- queue.offerAll(Chunk(1, 2))
+        _     <- queue.shutdownCause(Cause.die(boom))
+        res   <- queue.take.sandbox.either
+      } yield assert(res)(isLeft(equalTo(Cause.die(boom))))
+    },
+    test("shutdownCause fails waiting takers with the cause") {
+      val boom = new Error("boom")
+      for {
+        queue  <- Queue.bounded[Int](4)
+        f      <- queue.take.fork
+        _      <- waitForSize(queue, -1)
+        _      <- queue.shutdownCause(Cause.die(boom))
+        res    <- f.join.sandbox.either
+      } yield assert(res)(isLeft(equalTo(Cause.die(boom))))
+    },
+    test("shutdownCause fails backpressured putters with the cause") {
+      val boom = new Error("boom")
+      for {
+        queue <- Queue.bounded[Int](2)
+        _     <- queue.offerAll(Chunk(1, 2))
+        f     <- queue.offer(3).fork
+        _     <- waitForSize(queue, 3)
+        _     <- queue.shutdownCause(Cause.die(boom))
+        res   <- f.join.sandbox.either
+      } yield assert(res)(isLeft(equalTo(Cause.die(boom))))
+    },
+    test("shutdownCause concurrent calls - first wins and gets items, others get empty") {
+      for {
+        queue  <- Queue.bounded[Int](4)
+        _      <- queue.offerAll(Chunk(1, 2, 3))
+        f1     <- queue.shutdownCause(Cause.die(new Error("winner"))).fork
+        f2     <- queue.shutdownCause(Cause.die(new Error("loser"))).fork
+        r1     <- f1.join
+        r2     <- f2.join
+      } yield assert(r1)(equalTo(Chunk(1, 2, 3))) &&
+        assert(r2)(equalTo(Chunk.empty[Int]))
+    },
+    test("shutdownCause second call after shutdown returns empty") {
+      for {
+        queue <- Queue.bounded[Int](4)
+        _     <- queue.offerAll(Chunk(1, 2))
+        r1    <- queue.shutdownCause(Cause.die(new Error("first")))
+        r2    <- queue.shutdownCause(Cause.die(new Error("second")))
+      } yield assert(r1)(equalTo(Chunk(1, 2))) &&
+        assert(r2)(equalTo(Chunk.empty[Int]))
+    },
+    test("shutdownCause makes isShutdown true") {
+      for {
+        queue <- Queue.unbounded[Int]
+        _     <- queue.shutdownCause(Cause.empty)
+        isDown <- queue.isShutdown
+      } yield assertTrue(isDown)
+    },
+    test("shutdownCause makes awaitShutdown succeed") {
+      for {
+        queue <- Queue.unbounded[Int]
+        f     <- queue.awaitShutdown.fork
+        _     <- queue.shutdownCause(Cause.empty)
+        _     <- f.join
+      } yield assertCompletes
+    },
     test("back-pressured offer completes after take") {
       for {
         queue <- Queue.bounded[Int](2)
