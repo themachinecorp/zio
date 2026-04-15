@@ -120,7 +120,12 @@ object Semaphore {
           withPermitsScoped(1L)
 
         def withPermits[R, E, A](n: Long)(zio: ZIO[R, E, A])(implicit trace: Trace): ZIO[R, E, A] =
-          ZIO.acquireReleaseWith(reserve(n))(_.release)(_.acquire *> zio)
+          if (n < 0)
+            ZIO.die(new IllegalArgumentException(s"Unexpected negative `$n` permits requested."))
+          else if (n == 0L)
+            zio
+          else
+            ZIO.acquireReleaseWith(reserve(n))(_.release)(_.acquire *> zio)
 
         def withPermitsScoped(n: Long)(implicit trace: Trace): ZIO[Scope, Nothing, Unit] =
           ZIO.acquireRelease(reserve(n))(_.release).flatMap(_.acquire)
@@ -146,7 +151,8 @@ object Semaphore {
             ref.modify {
               case Right(permits) if permits >= n =>
                 Some(Reservation(ZIO.unit, releaseN(n))) -> Right(permits - n)
-              case other => None -> other
+              case other =>
+                None -> other
             }
 
         def reserve(n: Long)(implicit trace: Trace): UIO[Reservation] =
